@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>NetGuard IDS v2.4.1</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Syne:wght@400;700&display=swap');
+
+  :root {
+    --bg0: #0d0f14; --bg1: #131620; --bg2: #1a1d2e; --bg3: #20243a;
+    --border: #2a2e45; --border2: #3a3f5c;
+    --text0: #e8eaf6; --text1: #9fa8c9; --text2: #5c6380;
+    --red: #e24b4a; --red-bg: #2a1515; --red-dim: #7a2020;
+    --amber: #f59e0b; --amber-bg: #2a1f08;
+    --green: #22c55e; --green-bg: #0d2016;
+    --blue: #3b82f6; --blue-bg: #0d1a2e;
+    --purple: #a78bfa;
+    --font-mono: 'Share Tech Mono', monospace;
+    --font-main: 'Syne', sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg0);
+    color: var(--text0);
+    font-family: var(--font-main);
+    font-size: 13px;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* ── HEADER ── */
+  .hdr {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 20px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg1);
+    flex-shrink: 0;
+  }
+  .hdr-logo { display: flex; align-items: center; gap: 10px; }
+  .logo-icon {
+    width: 34px; height: 34px; border-radius: 8px;
+    background: var(--red); display: flex; align-items: center; justify-content: center;
+  }
+  .logo-icon svg { width: 20px; height: 20px; }
+  .logo-title { font-size: 15px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+  .logo-sub { font-size: 10px; color: var(--text2); font-family: var(--font-mono); }
+  .hdr-right { display: flex; align-items: center; gap: 14px; }
+  .mono { font-family: var(--font-mono); }
+  .live-badge {
+    display: flex; align-items: center; gap: 6px;
+    font-family: var(--font-mono); font-size: 11px;
+    border: 1px solid var(--border2); border-radius: 20px;
+    padding: 3px 10px; color: var(--green);
+  }
+  .pdot {
+    width: 7px; height: 7px; border-radius: 50%; background: var(--green);
+    animation: blink 1.3s ease-in-out infinite;
+  }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.25} }
+
+  /* ── TOOLBAR ── */
+  .toolbar {
+    display: flex; align-items: center; gap: 8px;
+    padding: 7px 20px; border-bottom: 1px solid var(--border);
+    background: var(--bg1); flex-wrap: wrap; flex-shrink: 0;
+  }
+  .lbl { font-size: 10px; color: var(--text2); font-family: var(--font-mono); text-transform: uppercase; }
+  select, input[type=text] {
+    background: var(--bg2); color: var(--text0); border: 1px solid var(--border2);
+    border-radius: 5px; padding: 4px 8px; font-family: var(--font-mono);
+    font-size: 11px; height: 28px; outline: none;
+  }
+  select:focus, input:focus { border-color: var(--blue); }
+  .btn {
+    font-family: var(--font-mono); font-size: 11px; text-transform: uppercase;
+    letter-spacing: .06em; padding: 4px 12px; border-radius: 5px; height: 28px;
+    border: 1px solid var(--border2); background: var(--bg2);
+    color: var(--text0); cursor: pointer; transition: all .15s;
+  }
+  .btn:hover { background: var(--bg3); border-color: var(--blue); }
+  .btn.danger { border-color: var(--red-dim); color: var(--red); }
+  .btn.danger:hover { background: var(--red-bg); }
+  .btn.attack { border-color: #7a4a00; color: var(--amber); }
+  .btn.attack:hover { background: var(--amber-bg); }
+  .ws-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--text2); margin-right: 4px; display: inline-block;
+  }
+  .ws-dot.connected { background: var(--green); }
+  .ws-dot.error { background: var(--red); }
+
+  /* ── STATS ── */
+  .stats-row {
+    display: grid; grid-template-columns: repeat(4, 1fr);
+    gap: 1px; background: var(--border);
+    border-bottom: 1px solid var(--border); flex-shrink: 0;
+  }
+  .stat {
+    background: var(--bg1); padding: 12px 18px;
+    display: flex; flex-direction: column; gap: 3px;
+  }
+  .stat-lbl { font-size: 10px; color: var(--text2); font-family: var(--font-mono); text-transform: uppercase; letter-spacing: .08em; }
+  .stat-val { font-size: 24px; font-weight: 700; font-family: var(--font-mono); }
+  .stat-sub { font-size: 10px; font-family: var(--font-mono); color: var(--text2); }
+  .red-v { color: var(--red); }
+  .amb-v { color: var(--amber); }
+  .grn-v { color: var(--green); }
+  .blu-v { color: var(--blue); }
+
+  /* ── MAIN LAYOUT ── */
+  .main {
+    display: grid; grid-template-columns: 1fr 320px;
+    flex: 1; overflow: hidden; gap: 1px; background: var(--border);
+  }
+
+  .panel { background: var(--bg1); display: flex; flex-direction: column; overflow: hidden; }
+
+  .ph {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 7px 14px;
+    border-bottom: 1px solid var(--border);
+    font-size: 10px; font-family: var(--font-mono);
+    color: var(--text2); text-transform: uppercase;
+    letter-spacing: .1em; background: var(--bg2); flex-shrink: 0;
+  }
+
+  /* ── PACKET TABLE ── */
+  .tbl-wrap { overflow-y: auto; flex: 1; }
+  table { width: 100%; border-collapse: collapse; font-family: var(--font-mono); font-size: 11px; }
+  thead th {
+    position: sticky; top: 0; background: var(--bg2);
+    padding: 6px 8px; text-align: left;
+    font-size: 10px; color: var(--text2); text-transform: uppercase;
+    letter-spacing: .07em; border-bottom: 1px solid var(--border);
+    font-weight: 400;
+  }
+  tbody tr { border-bottom: 1px solid var(--border); cursor: pointer; transition: background .1s; }
+  tbody tr:hover { background: var(--bg2); }
+  tbody tr.sel { background: var(--bg3) !important; outline: 1px solid var(--border2); }
+  td { padding: 5px 8px; color: var(--text0); }
+  td.attack-ip { color: var(--red) !important; }
+
+  .badge {
+    font-size: 9px; padding: 2px 6px; border-radius: 8px;
+    font-family: var(--font-mono); letter-spacing: .04em;
+  }
+  .sev-CRITICAL { background: #2a1515; color: #ef4444; border: 1px solid #7a2020; }
+  .sev-HIGH     { background: #2a1f08; color: #f59e0b; border: 1px solid #7a4a00; }
+  .sev-MEDIUM   { background: #0d1a2e; color: #60a5fa; border: 1px solid #1e3a5c; }
+  .sev-LOW      { background: #0d2016; color: #4ade80; border: 1px solid #1a4a28; }
+  .sev-INFO     { background: var(--bg2); color: var(--text2); border: 1px solid var(--border); }
+  .proto-badge {
+    font-size: 9px; padding: 1px 5px; border-radius: 3px;
+    border: 1px solid var(--border2); color: var(--text1);
+    background: var(--bg3);
+  }
+
+  /* ── BOTTOM SPLIT ── */
+  .bottom-split {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 1px; background: var(--border);
+    border-top: 1px solid var(--border); flex-shrink: 0; height: 180px;
+  }
+  .sub-panel { background: var(--bg1); display: flex; flex-direction: column; overflow: hidden; }
+  .detail-area {
+    padding: 10px 14px; font-family: var(--font-mono); font-size: 11px;
+    line-height: 1.9; overflow-y: auto; flex: 1;
+  }
+  .dk { color: var(--text2); display: inline-block; min-width: 110px; }
+  .dv { color: var(--text0); }
+  .dv.red { color: var(--red); }
+  .dv.grn { color: var(--green); }
+  .dv.amb { color: var(--amber); }
+  .payload-block {
+    margin-top: 7px; padding-top: 7px;
+    border-top: 1px solid var(--border);
+    color: var(--text2); font-size: 10px;
+  }
+  .payload-val { color: var(--red); word-break: break-all; font-size: 10px; }
+
+  /* ── ACTIVITY CHART ── */
+  .bars-wrap {
+    display: flex; align-items: flex-end; gap: 2px;
+    height: 50px; padding: 8px 14px 0;
+  }
+  .bar-col { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+  .bar { width: 100%; border-radius: 2px 2px 0 0; background: var(--blue); min-height: 2px; transition: height .3s; }
+  .bar.spike { background: var(--red); }
+  .bar-lbl { font-size: 8px; color: var(--text2); font-family: var(--font-mono); }
+  .meter-row { padding: 6px 14px; }
+  .meter-lbl { display: flex; justify-content: space-between; font-size: 10px; font-family: var(--font-mono); color: var(--text2); margin-bottom: 3px; }
+  .meter-bg { height: 3px; background: var(--bg3); border-radius: 2px; overflow: hidden; }
+  .meter-fill { height: 100%; border-radius: 2px; transition: width .4s; background: var(--blue); }
+
+  /* ── RIGHT PANEL ── */
+  .alert-list { overflow-y: auto; flex: 1; }
+  .alert-item {
+    display: flex; gap: 10px; align-items: flex-start;
+    padding: 9px 12px; border-bottom: 1px solid var(--border);
+    cursor: pointer; transition: background .1s;
+  }
+  .alert-item:hover { background: var(--bg2); }
+  .alert-icon {
+    width: 26px; height: 26px; border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; flex-shrink: 0; margin-top: 1px;
+  }
+  .icon-CRITICAL { background: var(--red-bg); color: var(--red); }
+  .icon-HIGH     { background: var(--amber-bg); color: var(--amber); }
+  .icon-MEDIUM   { background: var(--blue-bg); color: var(--blue); }
+  .icon-LOW      { background: var(--green-bg); color: var(--green); }
+  .alert-title { font-size: 11px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .alert-meta { font-size: 10px; color: var(--text2); font-family: var(--font-mono); margin-top: 2px; }
+
+  /* ── PORT SCANNER ── */
+  .port-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(65px, 1fr));
+    gap: 5px; padding: 8px 12px; overflow-y: auto;
+  }
+  .port-card {
+    border: 1px solid var(--border); border-radius: 5px;
+    padding: 5px 6px; text-align: center; cursor: pointer;
+    font-family: var(--font-mono); transition: all .15s;
+  }
+  .port-card:hover { background: var(--bg2); }
+  .port-num { font-size: 12px; font-weight: 700; }
+  .port-name { font-size: 8px; color: var(--text2); margin-top: 1px; }
+  .port-status { font-size: 8px; margin-top: 1px; }
+  .port-open     { border-color: #1a4a28; } .port-open .port-num { color: var(--green); } .port-open .port-status { color: #4ade80; }
+  .port-closed   { border-color: var(--border); } .port-closed .port-num { color: var(--text2); } .port-closed .port-status { color: var(--text2); }
+  .port-filtered { border-color: #7a4a00; } .port-filtered .port-num { color: var(--amber); } .port-filtered .port-status { color: var(--amber); }
+
+  /* ── GEO ── */
+  .geo-list { padding: 6px 12px; }
+  .geo-row { display: flex; align-items: center; gap: 8px; padding: 4px 0; border-bottom: 1px solid var(--border); font-family: var(--font-mono); font-size: 11px; }
+  .geo-ip { flex: 1; color: var(--text1); font-size: 10px; }
+  .geo-bar-bg { width: 70px; height: 3px; background: var(--bg3); border-radius: 2px; overflow: hidden; }
+  .geo-bar-fill { height: 100%; background: var(--red); border-radius: 2px; }
+  .geo-count { color: var(--text2); font-size: 10px; min-width: 24px; text-align: right; }
+
+  /* ── STATUS BAR ── */
+  .status-bar {
+    display: flex; gap: 20px; padding: 4px 20px;
+    border-top: 1px solid var(--border); background: var(--bg2);
+    font-family: var(--font-mono); font-size: 10px; color: var(--text2);
+    flex-wrap: wrap; flex-shrink: 0;
+  }
+  .si { display: flex; align-items: center; gap: 5px; }
+  .sdot { width: 6px; height: 6px; border-radius: 50%; }
+
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track { background: var(--bg0); }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="hdr">
+  <div class="hdr-logo">
+    <div class="logo-icon">
+      <svg viewBox="0 0 24 24" fill="none">
+        <path d="M12 2L3 7v5c0 5.25 3.75 10.15 9 11.35C17.25 22.15 21 17.25 21 12V7L12 2z" fill="white" opacity=".9"/>
+        <path d="M9 12l2 2 4-4" stroke="#E24B4A" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </div>
+    <div>
+      <div class="logo-title">NetGuard IDS</div>
+      <div class="logo-sub">Intrusion Detection System v2.4.1</div>
+    </div>
+  </div>
+  <div class="hdr-right">
+    <span class="mono" id="clock" style="font-size:11px;color:var(--text2)">--:--:--</span>
+    <div class="live-badge"><div class="pdot"></div>LIVE CAPTURE</div>
+  </div>
+</div>
+
+<!-- TOOLBAR -->
+<div class="toolbar">
+  <span class="lbl">Interface:</span>
+  <select id="iface">
+    <option>eth0 (192.168.1.1)</option>
+    <option>eth1 (10.0.0.1)</option>
+    <option>lo (127.0.0.1)</option>
+  </select>
+  <span class="lbl" style="margin-left:6px">Filter:</span>
+  <select id="proto-f">
+    <option value="ALL">All Protocols</option>
+    <option value="TCP">TCP</option>
+    <option value="UDP">UDP</option>
+    <option value="HTTP">HTTP</option>
+    <option value="DNS">DNS</option>
+    <option value="ICMP">ICMP</option>
+  </select>
+  <select id="sev-f">
+    <option value="ALL">All Severity</option>
+    <option value="CRITICAL">Critical</option>
+    <option value="HIGH">High</option>
+    <option value="MEDIUM">Medium</option>
+    <option value="LOW">Low</option>
+  </select>
+  <input id="ip-f" type="text" placeholder="Filter IP..." style="width:130px"/>
+  <span class="mono" style="font-size:10px;color:var(--text2);margin-left:4px">
+    <span class="ws-dot" id="ws-dot"></span><span id="ws-status">Connecting...</span>
+  </span>
+  <button class="btn attack" style="margin-left:auto" onclick="simulateAttack()">+ Simulate Attack</button>
+  <button class="btn danger" onclick="clearAlerts()">Clear Alerts</button>
+</div>
+
+<!-- STATS -->
+<div class="stats-row">
+  <div class="stat">
+    <div class="stat-lbl">Packets Captured</div>
+    <div class="stat-val blu-v" id="s-pkts">0</div>
+    <div class="stat-sub" id="s-pps">0 pkt/s</div>
+  </div>
+  <div class="stat">
+    <div class="stat-lbl">Active Threats</div>
+    <div class="stat-val red-v" id="s-threats">0</div>
+    <div class="stat-sub red-v" id="s-tdelta">+0 last 60s</div>
+  </div>
+  <div class="stat">
+    <div class="stat-lbl">Blocked IPs</div>
+    <div class="stat-val amb-v" id="s-blocked">0</div>
+    <div class="stat-sub" id="s-bip">No blocks active</div>
+  </div>
+  <div class="stat">
+    <div class="stat-lbl">Detection Rate</div>
+    <div class="stat-val grn-v">99.2%</div>
+    <div class="stat-sub grn-v">Signatures: 4,847 loaded</div>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+
+  <!-- LEFT: packet table + detail + chart -->
+  <div class="panel" style="display:flex;flex-direction:column;overflow:hidden;">
+    <div class="ph">
+      <span>Live Packet Stream</span>
+      <span id="pkt-lbl" style="color:var(--text2)">0 packets</span>
+    </div>
+    <div class="tbl-wrap" id="tbl-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th><th>Time</th><th>Src IP</th><th>Dst IP</th>
+            <th>Proto</th><th>Sport</th><th>Dport</th><th>Size</th>
+            <th>Severity</th><th>Signature</th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+
+    <div class="bottom-split">
+      <div class="sub-panel">
+        <div class="ph"><span>Packet Inspector</span><span>Click a row</span></div>
+        <div class="detail-area" id="detail">
+          <span style="color:var(--text2)">Select a packet to inspect...</span>
+        </div>
+      </div>
+      <div class="sub-panel">
+        <div class="ph"><span>Traffic Activity</span></div>
+        <div class="bars-wrap" id="bars"></div>
+        <div class="meter-row">
+          <div class="meter-lbl"><span>CPU</span><span id="cpu-v">0%</span></div>
+          <div class="meter-bg"><div class="meter-fill" id="cpu-bar" style="width:0%"></div></div>
+        </div>
+        <div class="meter-row">
+          <div class="meter-lbl"><span>Memory</span><span id="mem-v">0%</span></div>
+          <div class="meter-bg"><div class="meter-fill" id="mem-bar" style="width:0%;background:var(--amber)"></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT: alerts, port scanner, geo -->
+  <div class="panel">
+    <div class="ph"><span>Active Alerts</span><span id="alert-count" style="color:var(--red)">0 alerts</span></div>
+    <div class="alert-list" id="alert-list" style="max-height:210px;"></div>
+
+    <div class="ph" style="margin-top:1px">
+      <span>Port Scanner</span>
+      <button class="btn" style="font-size:9px;height:20px;padding:0 8px;" onclick="runScan()">Scan</button>
+    </div>
+    <div class="port-grid" id="port-grid" style="max-height:160px;"></div>
+
+    <div class="ph"><span>Attack Origins</span></div>
+    <div class="geo-list" id="geo-list"></div>
+  </div>
+</div>
+
+<!-- STATUS BAR -->
+<div class="status-bar">
+  <div class="si"><div class="sdot" style="background:var(--green)"></div>Engine: Active</div>
+  <div class="si"><div class="sdot" style="background:var(--green)"></div>Signatures: Loaded</div>
+  <div class="si"><div class="sdot" style="background:var(--blue)"></div>Capture: Running</div>
+  <div class="si"><div class="sdot" style="background:var(--amber)"></div>Anomaly: Learning</div>
+  <div class="si" style="margin-left:auto" id="sb-db">DB: postgresql://ids@localhost/netguard</div>
+</div>
+
+<script>
+const API = 'http://localhost:8000';
+const WS  = 'ws://localhost:8000/ws';
+
+let packets = [], alerts = [], geoMap = {};
+let activity = new Array(20).fill(0);
+let ws;
+let tDelta = 0, tDeltaTimer;
+
+const ATTACK_IPS = ['185.220.101.47','91.108.4.0','198.199.88.31','45.142.212.100','103.21.244.0','194.165.16.29'];
+const SEV_ICONS = {CRITICAL:'⚠',HIGH:'▲',MEDIUM:'◆',LOW:'●'};
+
+function ri(a,b){ return Math.floor(Math.random()*(b-a+1))+a; }
+
+// Clock
+setInterval(()=>{ document.getElementById('clock').textContent = new Date().toTimeString().split(' ')[0]; }, 1000);
+
+// Reset delta every 60s
+tDeltaTimer = setInterval(()=>{ tDelta=0; updateStats(); }, 60000);
+
+// ── WebSocket Connection ──
+function connectWS(){
+  ws = new WebSocket(WS);
+  const dot = document.getElementById('ws-dot');
+  const lbl = document.getElementById('ws-status');
+
+  ws.onopen = () => {
+    dot.className = 'ws-dot connected';
+    lbl.textContent = 'Connected';
+  };
+
+  ws.onmessage = (e) => {
+    const msg = JSON.parse(e.data);
+    if(msg.type === 'packet_batch' || msg.type === 'attack_burst'){
+      msg.packets.forEach(p => ingestPacket(p));
+      if(msg.stats) updateStatsFromServer(msg.stats);
+    }
+  };
+
+  ws.onclose = () => {
+    dot.className = 'ws-dot error';
+    lbl.textContent = 'Disconnected — retrying...';
+    setTimeout(connectWS, 3000);
+  };
+
+  ws.onerror = () => {
+    dot.className = 'ws-dot error';
+    lbl.textContent = 'Error';
+  };
+}
+
+function ingestPacket(p){
+  packets.push(p);
+  if(packets.length > 500) packets = packets.slice(-500);
+
+  activity.push(1);
+  if(activity.length > 20) activity.shift();
+  else activity[activity.length-1]++;
+
+  if(p.is_attack || p.severity !== 'INFO'){
+    alerts.push(p);
+    if(alerts.length > 100) alerts = alerts.slice(-100);
+    tDelta++;
+
+    if(ATTACK_IPS.includes(p.src_ip)){
+      if(!geoMap[p.src_ip]) geoMap[p.src_ip] = {count:0, flag:'🌐', country: p.src_ip};
+      geoMap[p.src_ip].count++;
+    }
+  }
+
+  renderTable();
+  renderAlerts();
+  renderGeo();
+  renderBars();
+  updateMeters();
+}
+
+function updateStatsFromServer(st){
+  document.getElementById('s-pkts').textContent    = st.packet_count.toLocaleString();
+  document.getElementById('s-threats').textContent = st.threat_count.toLocaleString();
+  document.getElementById('s-blocked').textContent = st.blocked_count;
+  document.getElementById('s-tdelta').textContent  = `+${tDelta} last 60s`;
+
+  const bips = Object.keys(st.blocked_ips || {});
+  document.getElementById('s-bip').textContent = bips.length > 0 ? bips[bips.length-1] : 'No blocks active';
+
+  if(st.geo_hits){
+    for(const [ip, d] of Object.entries(st.geo_hits)){
+      geoMap[ip] = d;
+    }
+    renderGeo();
+  }
+}
+
+function updateStats(){
+  document.getElementById('s-tdelta').textContent = `+${tDelta} last 60s`;
+}
+
+// ── Table Rendering ──
+function renderTable(){
+  const pf  = document.getElementById('proto-f').value;
+  const sf  = document.getElementById('sev-f').value;
+  const ipf = document.getElementById('ip-f').value.trim().toLowerCase();
+
+  const filt = packets.filter(p => {
+    if(pf !== 'ALL' && p.proto !== pf) return false;
+    if(sf !== 'ALL' && p.severity !== sf) return false;
+    if(ipf && !p.src_ip.includes(ipf) && !p.dst_ip.includes(ipf)) return false;
+    return true;
+  }).slice(-60).reverse();
+
+  document.getElementById('pkt-lbl').textContent = `${filt.length} packets`;
+
+  document.getElementById('tbody').innerHTML = filt.map(p => `
+    <tr onclick="inspect(${p.id})" id="r-${p.id}">
+      <td style="color:var(--text2)">${p.id}</td>
+      <td style="color:var(--text2)">${p.time}</td>
+      <td class="${ATTACK_IPS.includes(p.src_ip)?'attack-ip':''}">${p.src_ip}</td>
+      <td>${p.dst_ip}</td>
+      <td><span class="proto-badge">${p.proto}</span></td>
+      <td>${p.src_port}</td>
+      <td>${p.dst_port}</td>
+      <td>${p.size}B</td>
+      <td><span class="badge sev-${p.severity}">${p.severity}</span></td>
+      <td style="color:var(--text2);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${p.sig_name}</td>
+    </tr>
+  `).join('');
+}
+
+function inspect(id){
+  const p = packets.find(x => x.id === id);
+  if(!p) return;
+  document.querySelectorAll('tbody tr').forEach(r=>r.classList.remove('sel'));
+  const row = document.getElementById(`r-${id}`);
+  if(row) row.classList.add('sel');
+
+  const isAtk = p.severity !== 'INFO';
+  const cls = isAtk ? 'red' : 'dv';
+  document.getElementById('detail').innerHTML = `
+    <div><span class="dk">Packet ID:</span><span class="dv">#${p.id}</span></div>
+    <div><span class="dk">Timestamp:</span><span class="dv">${p.time}</span></div>
+    <div><span class="dk">Source:</span><span class="dv ${isAtk?'red':''}">${p.src_ip}:${p.src_port}</span></div>
+    <div><span class="dk">Destination:</span><span class="dv">${p.dst_ip}:${p.dst_port}</span></div>
+    <div><span class="dk">Protocol:</span><span class="dv">${p.proto}</span></div>
+    <div><span class="dk">TTL:</span><span class="dv">${p.ttl}</span></div>
+    <div><span class="dk">TCP Flags:</span><span class="dv">${p.flags}</span></div>
+    <div><span class="dk">Size:</span><span class="dv">${p.size} bytes</span></div>
+    <div><span class="dk">Signature:</span><span class="dv ${isAtk?'red':''}">${p.sig_id} — ${p.sig_name}</span></div>
+    <div><span class="dk">Severity:</span><span class="dv ${isAtk?'red':''}">${p.severity}</span></div>
+    <div class="payload-block">
+      <div style="color:var(--text2);margin-bottom:3px;">PAYLOAD</div>
+      <div class="payload-val ${isAtk?'':'dv'}">${p.payload}</div>
+    </div>
+  `;
+}
+
+// ── Alerts ──
+function renderAlerts(){
+  document.getElementById('alert-count').textContent = `${alerts.length} alert${alerts.length!==1?'s':''}`;
+  document.getElementById('alert-list').innerHTML = alerts.slice(-10).reverse().map(a => `
+    <div class="alert-item" onclick="inspect(${a.id})">
+      <div class="alert-icon icon-${a.severity}">${SEV_ICONS[a.severity]||'i'}</div>
+      <div style="flex:1;min-width:0">
+        <div class="alert-title">${a.sig_name}</div>
+        <div class="alert-meta">${a.src_ip} → ${a.dst_ip}  ${a.time}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+// ── Geo ──
+const FLAG_MAP = {'185.220.101.47':'🇷🇺','91.108.4.0':'🇨🇳','198.199.88.31':'🇺🇸','45.142.212.100':'🇳🇱','103.21.244.0':'🇮🇳','194.165.16.29':'🇩🇪'};
+function renderGeo(){
+  const entries = Object.entries(geoMap).sort((a,b)=>b[1].count-a[1].count).slice(0,6);
+  const max = entries[0]?.[1].count || 1;
+  document.getElementById('geo-list').innerHTML = entries.map(([ip,d]) => `
+    <div class="geo-row">
+      <span style="font-size:13px">${FLAG_MAP[ip]||'🌐'}</span>
+      <span class="geo-ip">${ip}</span>
+      <div class="geo-bar-bg"><div class="geo-bar-fill" style="width:${Math.round(d.count/max*100)}%"></div></div>
+      <span class="geo-count">${d.count}</span>
+    </div>
+  `).join('') || '<div style="color:var(--text2);font-size:11px;padding:8px 0;font-family:var(--font-mono)">No attack traffic yet</div>';
+}
+
+// ── Activity Bars ──
+function renderBars(){
+  const max = Math.max(...activity, 1);
+  document.getElementById('bars').innerHTML = activity.map((v,i) => {
+    const h = Math.round((v/max)*46);
+    const spike = v > max*.65;
+    const lbl = i%5===0 ? `-${(20-i)*3}s` : '';
+    return `<div class="bar-col"><div class="bar${spike?' spike':''}" style="height:${h}px"></div><div class="bar-lbl">${lbl}</div></div>`;
+  }).join('');
+}
+
+function updateMeters(){
+  const cpu = ri(18,72), mem = ri(32,58);
+  document.getElementById('cpu-v').textContent = cpu+'%';
+  document.getElementById('cpu-bar').style.cssText = `width:${cpu}%;background:${cpu>60?'var(--red)':'var(--blue)'}`;
+  document.getElementById('mem-v').textContent = mem+'%';
+  document.getElementById('mem-bar').style.width = mem+'%';
+}
+
+// ── Port Scanner ──
+const PORTS = [
+  {port:22,name:'SSH',status:'open'},{port:80,name:'HTTP',status:'open'},
+  {port:443,name:'HTTPS',status:'open'},{port:21,name:'FTP',status:'closed'},
+  {port:25,name:'SMTP',status:'filtered'},{port:3306,name:'MySQL',status:'closed'},
+  {port:3389,name:'RDP',status:'filtered'},{port:8080,name:'HTTP-Alt',status:'open'},
+  {port:53,name:'DNS',status:'open'},{port:139,name:'NetBIOS',status:'filtered'},
+  {port:445,name:'SMB',status:'closed'},{port:1433,name:'MSSQL',status:'closed'},
+  {port:8443,name:'HTTPS-Alt',status:'open'},{port:27017,name:'MongoDB',status:'filtered'},
+];
+let scanIdx = 0, scanning = false;
+
+function runScan(){
+  if(scanning) return;
+  scanning = true; scanIdx = 0;
+  document.getElementById('port-grid').innerHTML = '';
+  const iv = setInterval(()=>{
+    if(scanIdx >= PORTS.length){ clearInterval(iv); scanning=false; return; }
+    appendPort(PORTS[scanIdx++]);
+  }, 120);
+}
+
+function appendPort(p){
+  const el = document.createElement('div');
+  el.className = `port-card port-${p.status}`;
+  el.innerHTML = `<div class="port-num">${p.port}</div><div class="port-name">${p.name}</div><div class="port-status">${p.status}</div>`;
+  document.getElementById('port-grid').appendChild(el);
+}
+
+// ── Actions ──
+async function simulateAttack(){
+  try {
+    const r = await fetch(`${API}/api/simulate-attack`, {method:'POST'});
+    const d = await r.json();
+    console.log('Attack injected:', d);
+  } catch(e){
+    // If backend not running, generate locally
+    const attacks = ['SYN Flood Attack','SQL Injection Attempt','Malware C2 Beacon','ARP Spoofing'];
+    const atk = attacks[Math.floor(Math.random()*attacks.length)];
+    const src = ATTACK_IPS[Math.floor(Math.random()*ATTACK_IPS.length)];
+    for(let i=0;i<5;i++){
+      ingestPacket({
+        id: packets.length+1+i, time: new Date().toTimeString().split(' ')[0],
+        src_ip:src, dst_ip:'192.168.1.1', proto:'TCP',
+        src_port:ri(1024,65535), dst_port:80, size:ri(40,1480), ttl:64,
+        flags:'SYN', severity:'CRITICAL', sig_name:atk,
+        sig_id:'SID:'+ri(1000,9999),
+        payload:'SIMULATED: '+atk, is_attack:true,
+      });
+    }
+  }
+}
+
+async function clearAlerts(){
+  try { await fetch(`${API}/api/alerts`, {method:'DELETE'}); } catch(e){}
+  alerts=[]; geoMap={}; tDelta=0;
+  document.getElementById('s-threats').textContent='0';
+  document.getElementById('s-blocked').textContent='0';
+  document.getElementById('s-bip').textContent='No blocks active';
+  renderAlerts(); renderGeo();
+}
+
+// Filters
+document.getElementById('proto-f').onchange = renderTable;
+document.getElementById('sev-f').onchange   = renderTable;
+document.getElementById('ip-f').oninput     = renderTable;
+
+// Boot
+renderBars();
+connectWS();
+</script>
+</body>
+</html>
